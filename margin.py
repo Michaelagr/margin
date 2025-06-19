@@ -84,7 +84,7 @@ def load_data(file_path):
 class MarginDownloader:
     def __init__(self, api_key: str):
         self.url_base = "https://api.developer.deutsche-boerse.com/prod/prisma-margin-estimator-2-0/2.0.0/"
-        self.api_header = {"X-DBP-APIKEY": api_key}
+        self.api_header = {"X-DBP-APIKEY": "d73a57e8-de0f-44a9-9c5b-819049743ba6"}
         self.session = self._create_session()
 
     def _create_session(self) -> requests.Session:
@@ -319,7 +319,7 @@ def main():
     # API Key input
     api_key = (
         "API Key:",
-        value="d73a57e8-de0f-44a9-9c5b-819049743ba6",
+        value="",
         type="password",
         help="Deutsche Börse API key"
     )
@@ -383,7 +383,7 @@ def main():
 
     # Call/Put selection
     available_options = sorted(df['call_put_flag'].unique())
-    option_labels = {'C': 'Call Options', 'P': 'Put Options'}
+    option_labels = {'P': 'Put Options','C': 'Call Options'}
     selected_option = st.sidebar.selectbox(
         "📈 Select Option Type:",
         available_options,
