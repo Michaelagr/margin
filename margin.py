@@ -156,7 +156,7 @@ class MarginDownloader:
         # Prepare ETD list  
         etd_list = [
             {'line_no': 1, 'iid': product['iid'], 'net_ls_balance': -1}
-            for product in series['list_series']
+            for product in series['list_series'][:200]
         ]
         
         # Process with progress bar
