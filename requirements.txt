@@ -1,0 +1,6 @@
+pandas
+plotly
+plotly.express
+plotly.graph_objects
+numpy as np
+datetime
