@@ -59,7 +59,8 @@ st.markdown("""
 def load_data(file_path):
     """Load and process the margin data"""
     try:
-        df = pd.read_csv(file_path, sep='\t')
+#        df = pd.read_csv(file_path, sep='\t')
+        df = pd.read_csv(file_path)
 
         # Convert contract_date to datetime for better handling
         df['contract_date'] = pd.to_datetime(df['contract_date'], format='%Y%m%d')
