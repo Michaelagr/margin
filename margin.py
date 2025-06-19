@@ -59,8 +59,8 @@ st.markdown("""
 def load_data(file_path):
     """Load and process the margin data"""
     try:
-#        df = pd.read_csv(file_path, sep='\t')
-        df = pd.read_csv(file_path, sep=',')
+        df = pd.read_csv(file_path, sep='\t')
+#        df = pd.read_csv(file_path, sep=',')
 
         # Convert contract_date to datetime for better handling
         df['contract_date'] = pd.to_datetime(df['contract_date'], format='%Y%m%d')
@@ -359,7 +359,8 @@ def main():
         st.sidebar.info("💡 Upload file or fetch fresh data using API")
         try:
             #df = load_data("C:/Users/mgr/Documents/python/battery-dashboard/Margin games/Margin_Result.txt")
-            df = load_data("margin_data_2025-06-20_P.csv")
+            #df = load_data("margin_data_2025-06-20_P.csv")
+            df = load_data("Margin_Result.txt")
             st.sidebar.info("📁 Using local file")
         except:
             st.error("⚠️ Please upload your Margin_Result.txt file or fetch fresh data using the API")
