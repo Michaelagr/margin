@@ -317,7 +317,7 @@ def main():
     st.sidebar.header("📁 Data Input")
     
     # API Key input
-    api_key = (
+    api_key = st.sidebar.text_input(
         "API Key:",
         value="",
         type="password",
