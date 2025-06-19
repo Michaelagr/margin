@@ -5,6 +5,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 from datetime import datetime
+import requests
+import json
+import concurrent.futures
+import time
+from typing import List, Dict, Any
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Page configuration
 st.set_page_config(
@@ -71,6 +78,121 @@ def load_data(file_path):
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return None
+
+
+class MarginDownloader:
+    def __init__(self, api_key: str):
+        self.url_base = "https://api.developer.deutsche-boerse.com/prod/prisma-margin-estimator-2-0/2.0.0/"
+        self.api_header = {"X-DBP-APIKEY": api_key}
+        self.session = self._create_session()
+
+    def _create_session(self) -> requests.Session:
+        """Create a session with retry mechanism and proper connection pooling"""
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=25,
+            pool_maxsize=25,
+            pool_block=True
+        )
+        session.mount("https://", adapter)
+        return session
+
+    def get_series(self, product: str = 'ODAX') -> Dict[str, Any]:
+        """Get series data with error handling"""
+        try:
+            response = self.session.get(
+                f"{self.url_base}series",
+                params={'products': product},
+                headers=self.api_header,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error fetching series data: {e}")
+            raise
+
+    def call_margin_api(self, etd: Dict[str, Any]) -> Dict[str, Any]:
+        """Call margin API for a single ETD"""
+        try:
+            response = self.session.post(
+                f"{self.url_base}estimator",
+                headers=self.api_header,
+                json={
+                    'portfolio_components': [
+                        {'type': 'etd_portfolio', 'etd_portfolio': [etd]}
+                    ],
+                    'clearing_currency': 'EUR'
+                },
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                return None
+                
+            result = response.json()
+            return {
+                'iid': etd['iid'],
+                'initial_margin': result['portfolio_margin'][0]['initial_margin'],
+                'component_margin': result['drilldowns'][0]['component_margin'],
+                'premium_margin': result['drilldowns'][0]['premium_margin']
+            }
+            
+        except Exception:
+            return None
+
+    def fetch_fresh_data(self) -> pd.DataFrame:
+        """Fetch fresh margin data and return as DataFrame"""
+        # Get series data
+        series = self.get_series()
+        
+        # Prepare ETD list  
+        etd_list = [
+            {'line_no': 1, 'iid': product['iid'], 'net_ls_balance': -1}
+            for product in series['list_series']
+        ]
+        
+        # Process with progress bar
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        result_list = []
+        for i, etd in enumerate(etd_list):
+            result = self.call_margin_api(etd)
+            if result:
+                result_list.append(result)
+            
+            progress = (i + 1) / len(etd_list)
+            progress_bar.progress(progress)
+            status_text.text(f"Processing {i+1}/{len(etd_list)} contracts...")
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Convert to DataFrames and merge
+        data_odax = pd.json_normalize(series, record_path=['list_series'])
+        margin_result = pd.DataFrame(result_list)
+        
+        merged_result = data_odax.merge(margin_result, on="iid")
+        merged_result = merged_result.sort_values(
+            by=['call_put_flag', 'contract_date', 'exercise_price']
+        )
+        
+        # Process like load_data function
+        merged_result['contract_date'] = pd.to_datetime(merged_result['contract_date'], format='%Y%m%d')
+        merged_result['total_margin_db'] = (merged_result['initial_margin'] + merged_result['premium_margin']) * 1.5
+        
+        numeric_columns = ['exercise_price', 'initial_margin', 'premium_margin', 'total_margin_db']
+        merged_result[numeric_columns] = merged_result[numeric_columns].round(2)
+        merged_result['date_display'] = merged_result['contract_date'].dt.strftime('%Y-%m-%d')
+        
+        return merged_result
 
 
 def create_margin_chart(filtered_data, chart_type="line"):
@@ -192,22 +314,54 @@ def main():
 
     # File upload section
     st.sidebar.header("📁 Data Input")
+    
+    # API Key input
+    api_key = st.sidebar.text_input(
+        "API Key:",
+        value="d73a57e8-de0f-44a9-9c5b-819049743ba6",
+        type="password",
+        help="Deutsche Börse API key"
+    )
+    
+    # Fetch fresh data button
+    if st.sidebar.button("🔄 Fetch Fresh Data"):
+        if api_key:
+            with st.spinner("Fetching fresh margin data..."):
+                try:
+                    downloader = MarginDownloader(api_key)
+                    df = downloader.fetch_fresh_data()
+                    st.session_state.fresh_data = df
+                    st.sidebar.success("Fresh data loaded!")
+                except Exception as e:
+                    st.sidebar.error(f"Error fetching data: {e}")
+                    df = None
+        else:
+            st.sidebar.error("Please enter API key")
+    
+    # File upload option
     uploaded_file = st.sidebar.file_uploader(
-        "Upload Margin_Result.txt file",
+        "Or upload Margin_Result.txt file",
         type=['txt', 'csv'],
         help="Upload your margin data file (tab-separated format)"
     )
 
-    # Load default file if no upload
-    if uploaded_file is None:
-        st.sidebar.info("💡 Upload your Margin_Result.txt file or place it in the same directory as this script")
+    # Load data with priority: fresh data > uploaded file > default file
+    df = None
+    
+    if 'fresh_data' in st.session_state:
+        df = st.session_state.fresh_data
+        st.sidebar.info("🔄 Using fresh API data")
+    elif uploaded_file is not None:
+        df = load_data(uploaded_file)
+        st.sidebar.info("📁 Using uploaded file")
+    else:
+        st.sidebar.info("💡 Upload file or fetch fresh data using API")
         try:
             df = load_data("C:/Users/mgr/Documents/python/battery-dashboard/Margin games/Margin_Result.txt")
+            st.sidebar.info("📁 Using local file")
         except:
-            st.error("⚠️ Please upload your Margin_Result.txt file using the sidebar")
+            st.error("⚠️ Please upload your Margin_Result.txt file or fetch fresh data using the API")
             return
-    else:
-        df = load_data(uploaded_file)
 
     if df is None or len(df) == 0:
         st.error("❌ Could not load data. Please check your file format.")
