@@ -357,7 +357,8 @@ def main():
     else:
         st.sidebar.info("💡 Upload file or fetch fresh data using API")
         try:
-            df = load_data("C:/Users/mgr/Documents/python/battery-dashboard/Margin games/Margin_Result.txt")
+            #df = load_data("C:/Users/mgr/Documents/python/battery-dashboard/Margin games/Margin_Result.txt")
+            df = load_data(margin_data_2025-06-20_P.csv)
             st.sidebar.info("📁 Using local file")
         except:
             st.error("⚠️ Please upload your Margin_Result.txt file or fetch fresh data using the API")
