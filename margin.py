@@ -202,6 +202,16 @@ def create_margin_chart(filtered_data, chart_type="line", log_scale=False):
     if chart_type == "line":
         fig = go.Figure()
 
+        fig.add_trace(go.Scatter(
+            x=filtered_data['exercise_price'],
+            y=filtered_data['total_margin_db'],
+            mode='lines+markers',
+            name='Gesamt Margin Deutsche Bank',
+            line=dict(color='crimson', width=3),
+            marker=dict(size=8),
+            hovertemplate='<b>Total Margin DB</b><br>Value: €%{y:,.2f}<extra></extra><br>'
+        ))
+
         # Add traces for each margin type
         fig.add_trace(go.Scatter(
             x=filtered_data['exercise_price'],
@@ -210,7 +220,7 @@ def create_margin_chart(filtered_data, chart_type="line", log_scale=False):
             name='Initial Margin',
             line=dict(color='dodgerblue', width=3),
             marker=dict(size=8),
-            hovertemplate='<b>Initial Margin</b><br>Strike: %{x:,.3f}<br>Value: €%{y:,.2f}<extra></extra>'
+            hovertemplate='<b>Initial Margin</b><br>Value: €%{y:,.2f}<extra></extra><br>'
         ))
 
         fig.add_trace(go.Scatter(
@@ -220,18 +230,9 @@ def create_margin_chart(filtered_data, chart_type="line", log_scale=False):
             name='Premium Margin',
             line=dict(color='lightskyblue', width=3),
             marker=dict(size=8),
-            hovertemplate='<b>Premium Margin</b><br>Strike: %{x:,.3f}<br>Value: €%{y:,.2f}<extra></extra>'
+            hovertemplate='<b>Premium Margin</b><br>Value: €%{y:,.2f}<extra></extra>'
         ))
 
-        fig.add_trace(go.Scatter(
-            x=filtered_data['exercise_price'],
-            y=filtered_data['total_margin_db'],
-            mode='lines+markers',
-            name='Total Margin DB',
-            line=dict(color='crimson', width=3),
-            marker=dict(size=8),
-            hovertemplate='<b>Total Margin DB</b><br>Strike: %{x:,.3f}<br>Value: €%{y:,.2f}<extra></extra>'
-        ))
 
     else:  # bar chart
         fig = go.Figure()
@@ -241,10 +242,18 @@ def create_margin_chart(filtered_data, chart_type="line", log_scale=False):
 
         fig.add_trace(go.Bar(
             x=x_pos,
+            y=filtered_data['total_margin_db'],
+            name='Total Margin DB',
+            marker_color='#d62728',
+            hovertemplate='<b>Total Margin DB</b><br>Value: €%{y:,.2f}<extra></extra><br>'
+        ))
+
+        fig.add_trace(go.Bar(
+            x=x_pos,
             y=filtered_data['initial_margin'],
             name='Initial Margin',
             marker_color='#1f77b4',
-            hovertemplate='<b>Initial Margin</b><br>Strike: %{x:,.3f}<br>Value: €%{y:,.2f}<extra></extra>'
+            hovertemplate='<b>Initial Margin</b><br>Value: €%{y:,.2f}<extra></extra><br>'
         ))
 
         fig.add_trace(go.Bar(
@@ -252,22 +261,15 @@ def create_margin_chart(filtered_data, chart_type="line", log_scale=False):
             y=filtered_data['premium_margin'],
             name='Premium Margin',
             marker_color='#ff7f0e',
-            hovertemplate='<b>Premium Margin</b><br>Strike: %{x:,.3f}<br>Value: €%{y:,.2f}<extra></extra>'
+            hovertemplate='<b>Premium Margin</b><br>Value: €%{y:,.2f}<extra></extra>'
         ))
 
-        fig.add_trace(go.Bar(
-            x=x_pos,
-            y=filtered_data['total_margin_db'],
-            name='Total Margin DB',
-            marker_color='#d62728',
-            hovertemplate='<b>Total Margin DB</b><br>Strike: %{x:,.3f}<br>Value: €%{y:,.2f}<extra></extra>'
-        ))
 
     fig.update_layout(
         title=dict(
-            text="Marginanforderung je Basiswert",
+            text="Marginanforderung für alle ausgewählten Basiswerte",
             font=dict(size=20, color='#1f77b4'),
-            x=0.5
+            x=0.05
         ),
         xaxis_title="Basiswert",
         yaxis_title="Margin Amount (EUR)",
